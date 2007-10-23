@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: SocksChain10.pm,v 1.3 2007/09/26 18:37:34 gosha Exp $
+# $Id: SocksChain10.pm,v 1.4 2007/10/23 06:13:18 gosha Exp $
 #
 # Copyright (C) Igor V. Okunev gosha<at>prv.mts-nn.ru 2005
 #
@@ -24,7 +24,7 @@ use IO::Select;
 use IO::Socket::SSL;
 use LWP::Protocol;
 
-($VERSION='$Revision: 1.3 $')=~s/^\S+\s+(\S+)\s+.*/$1/;
+($VERSION='$Revision: 1.4 $')=~s/^\S+\s+(\S+)\s+.*/$1/;
 
 local $^W = 1;
 
@@ -44,7 +44,7 @@ sub _new_socket
 	my $cfg = {
 				PeerHost	=> $host,
 				PeerPort	=> $port,
-				TimeOut		=> $timeout,
+				timeout		=> $timeout,
 				$self->_extra_sock_opts($host, $port) };
 
 	my $sc = Net::SC->new(		TimeOut => $timeout,
@@ -57,7 +57,11 @@ sub _new_socket
 
 	my $obj = bless $sc->sh;
 
-	$obj->configure_SSL( $cfg ) && $obj->connect_SSL($sc->sh);
+	if ( $IO::Socket::SSL::VERSION > 0.97 ) {
+		$obj->configure_SSL( $cfg ) && $obj->connect_SSL();
+	} else {
+		$obj->configure_SSL( $cfg ) && $obj->connect_SSL($sc->sh);
+	}
 
 	unless ($obj) {
 # IO::Socket leaves additional error messages in $@
@@ -368,7 +372,7 @@ LWP, LWP::Protocol, Net::SC
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2005 by Igor V. Okunev
+Copyright (C) 2005 - 2007  by Igor V. Okunev
 
 All rights reserved. This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
