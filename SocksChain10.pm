@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: SocksChain10.pm,v 1.4 2007/10/23 06:13:18 gosha Exp $
+# $Id: SocksChain10.pm,v 1.5 2008/06/17 19:43:12 gosha Exp $
 #
 # Copyright (C) Igor V. Okunev gosha<at>prv.mts-nn.ru 2005
 #
@@ -24,7 +24,7 @@ use IO::Select;
 use IO::Socket::SSL;
 use LWP::Protocol;
 
-($VERSION='$Revision: 1.4 $')=~s/^\S+\s+(\S+)\s+.*/$1/;
+($VERSION='$Revision: 1.5 $')=~s/^\S+\s+(\S+)\s+.*/$1/;
 
 local $^W = 1;
 
@@ -41,15 +41,36 @@ sub _new_socket
 {
 	my($self, $host, $port, $timeout ) = @_;
 
-	my $cfg = {
+	my %cfg = (
 				PeerHost	=> $host,
 				PeerPort	=> $port,
 				timeout		=> $timeout,
-				$self->_extra_sock_opts($host, $port) };
+				$self->_extra_sock_opts($host, $port) );
 
-	my $sc = Net::SC->new(		TimeOut => $timeout,
-								$self->_extra_sock_opts($host, $port),
-						) || die $!;
+	#
+	# client certificate support
+	#
+	if ( defined $ENV{HTTPS_KEY_FILE} and not exists $cfg{SSL_key_file} ) {
+		$cfg{SSL_key_file} = $ENV{HTTPS_KEY_FILE};
+	}
+
+	if ( defined $ENV{HTTPS_CA_DIR} and not exists $cfg{SSL_ca_path} ) {
+		$cfg{SSL_ca_path} = $ENV{HTTPS_CA_DIR}; 
+	}
+
+	if ( defined $ENV{HTTPS_CA_FILE} and not exists $cfg{SSL_ca_file} ) {
+		$cfg{SSL_ca_file} = $ENV{HTTPS_CA_FILE};
+	}
+
+	if ( defined $ENV{HTTPS_CERT_FILE} and not exists $cfg{SSL_cert_file} ) {
+		$cfg{SSL_cert_file} = $ENV{HTTPS_CERT_FILE};
+	}
+
+	if ( not exists $cfg{SSL_use_cert} and exists $cfg{SSL_cert_file} ) {
+		$cfg{SSL_use_cert} = 1
+	}
+
+	my $sc = Net::SC->new( %cfg ) || die $!;
 
 	unless ( ( my $rc = $sc->connect( $host, $port ) ) == SOCKS_OKAY ) {
 		die socks_error($rc) . "\n";
@@ -58,9 +79,9 @@ sub _new_socket
 	my $obj = bless $sc->sh;
 
 	if ( $IO::Socket::SSL::VERSION > 0.97 ) {
-		$obj->configure_SSL( $cfg ) && $obj->connect_SSL();
+		$obj->configure_SSL( \%cfg ) && $obj->connect_SSL();
 	} else {
-		$obj->configure_SSL( $cfg ) && $obj->connect_SSL($sc->sh);
+		$obj->configure_SSL( \%cfg ) && $obj->connect_SSL($sc->sh);
 	}
 
 	unless ($obj) {
@@ -372,7 +393,7 @@ LWP, LWP::Protocol, Net::SC
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2005 - 2007  by Igor V. Okunev
+Copyright (C) 2005 - 2008  by Igor V. Okunev
 
 All rights reserved. This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
