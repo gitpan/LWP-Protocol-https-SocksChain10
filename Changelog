@@ -1,4 +1,7 @@
 
+1.6
+	Cleanup for LWP::Debug::trace
+
 1.5
 	Added client certificate support ( thanks Andrew Deryabin )
 
