@@ -1,6 +1,6 @@
 ########################################################################
 #
-# $Id: SocksChain10.pm,v 1.6 2009-11-14 10:26:44 gosha Exp $
+# $Id: SocksChain10.pm,v 1.7 2009-11-21 20:25:47 gosha Exp $
 #
 # Copyright (C) Igor V. Okunev gosha<at>prv.mts-nn.ru 2005
 #
@@ -17,14 +17,13 @@ use vars qw( @ISA $VERSION @EXTRA_SOCK_OPTS );
 
 use Net::SC;
 
-use LWP::Debug;
 use HTTP::Response;
 use HTTP::Status;
 use IO::Select;
 use IO::Socket::SSL;
 use LWP::Protocol;
 
-($VERSION='$Revision: 1.6 $')=~s/^\S+\s+(\S+)\s+.*/$1/;
+($VERSION='$Revision: 1.7 $')=~s/^\S+\s+(\S+)\s+.*/$1/;
 
 local $^W = 1;
 
@@ -155,7 +154,6 @@ sub _fixup_header
 sub request
 {
 	my($self, $request, undef, $arg, $size, $timeout) = @_;
-	#LWP::Debug::trace('()');
 
 	$size ||= 4096;
 
@@ -222,8 +220,6 @@ sub request
 		$offset += $n;
 	}
 	
-	LWP::Debug::conns($buf);
-
 	if ($ctype eq 'CODE') {
 		while ( ($buf = &$cont_ref()), defined($buf) && length($buf)) {
 # syswrite $buf
@@ -235,7 +231,6 @@ sub request
 				die $! unless defined($n);
 				$offset += $n;
 			}
-			LWP::Debug::conns($buf);
 		}
 	} elsif (defined($$cont_ref) && length($$cont_ref)) {
 # syswrite $$cont_ref
@@ -247,11 +242,9 @@ sub request
 			die $! unless defined($n);
 			$offset += $n;
 		}
-		LWP::Debug::conns($$cont_ref);
 	}
 
 # read response line from server
-	LWP::Debug::debug('reading response');
 
 	my $response;
 	$buf = '';
@@ -263,13 +256,11 @@ sub request
 		$n = $socket->sysread($buf, $size, length($buf));
 		die $! unless defined($n);
 		die "unexpected EOF before status line seen" unless $n;
-		LWP::Debug::conns($buf);
 
 		if ($buf =~ s/^(HTTP\/\d+\.\d+)[ \t]+(\d+)[ \t]*([^\012]*)\012//) {
 # HTTP/1.0 response or better
 			my($ver,$code,$msg) = ($1, $2, $3);
 			$msg =~ s/\015$//;
-			LWP::Debug::debug("$ver $code $msg");
 			$response = HTTP::Response->new($code, $msg);
 			$response->protocol($ver);
 
@@ -277,13 +268,11 @@ sub request
 # terminated by two blank lines
 			until ($buf =~ /^\015?\012/ || $buf =~ /\015?\012\015?\012/) {
 # must read more if we can...
-				LWP::Debug::debug("need more header data");
 				die "read timeout" if $timeout && !$sel->can_read($timeout);
 				my $old_len = length($buf);
 				$n = $socket->sysread($buf, $size, $old_len);
 				die $! unless defined($n);
 				die "unexpected EOF before all headers seen" unless $n;
-				LWP::Debug::conns(substr($buf, $old_len));
 			}
 
 # now we start parsing the headers.  The strategy is to
@@ -315,14 +304,12 @@ sub request
 		} elsif ((length($buf) >= 5 and $buf !~ /^HTTP\//) or
 			$buf =~ /\012/ ) {
 # HTTP/0.9 or worse
-			LWP::Debug::debug("HTTP/0.9 assume OK");
 			$response = HTTP::Response->new(&HTTP::Status::RC_OK, "OK");
 			$response->protocol('HTTP/0.9');
 			last;
 
 		} else {
 # need more data
-			LWP::Debug::debug("need more status line data");
 		}
 	};
 	$response->request($request);
@@ -343,7 +330,6 @@ sub request
 			die "read timeout" if $timeout && !$sel->can_read($timeout);
 			my $n = $socket->sysread($buf, $size);
 			die $! unless defined($n);
-#			LWP::Debug::conns($buf);
 			return \$buf;
 		} );
 
